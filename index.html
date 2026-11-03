@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AISLE — Walk the store in 3D</title>
+  <meta name="description" content="AISLE is an online grocery you can walk through in 3D. Stroll the aisles, pick products off the shelf, delivered in 30 minutes." />
+  <meta name="theme-color" content="#f6f1e9" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f4fd8'/%3E%3Ccircle cx='22' cy='10' r='4' fill='%23ff7a1a'/%3E%3Cpath d='M8 24 L14 8 L20 24' stroke='white' stroke-width='3.4' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <div class="loader" id="loader" aria-hidden="true">
+    <div class="loader-mark">
+      <svg viewBox="0 0 64 64" width="56" height="56"><rect width="64" height="64" rx="16" fill="#1f4fd8"/><circle cx="45" cy="19" r="7" fill="#ff7a1a"/><path d="M16 48 L28 16 L40 48" stroke="#fff" stroke-width="6.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+    </div>
+    <p class="loader-text">Stocking shelves<span class="loader-count" id="loaderCount"></span></p>
+    <div class="loader-bar"><span></span></div>
+  </div>
+
+  <canvas id="scene" role="img" aria-label="A bright 3D supermarket aisle with shelves of colourful products on both sides, ceiling light strips and hanging aisle signs. Scrolling walks you down the aisle."></canvas>
+  <div class="veil" aria-hidden="true"></div>
+
+  <header class="nav" id="nav">
+    <a class="brand" href="#top" aria-label="AISLE home">
+      <svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#1f4fd8"/><circle cx="45" cy="19" r="7" fill="#ff7a1a"/><path d="M16 48 L28 16 L40 48" stroke="#fff" stroke-width="6.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span>AISLE</span>
+    </a>
+    <nav class="nav-links" aria-label="Store sections">
+      <a href="#fresh">Fresh</a>
+      <a href="#pantry">Pantry</a>
+      <a href="#drinks">Drinks</a>
+      <a href="#checkout">Checkout</a>
+    </nav>
+    <div class="nav-right">
+      <span class="nav-eta"><i aria-hidden="true"></i>Open now · 30 min</span>
+      <button class="cart-btn" id="cartBtn" aria-label="Basket, 0 items">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 5h2.2l2.1 10.2a1.6 1.6 0 0 0 1.6 1.3h8.4a1.6 1.6 0 0 0 1.6-1.2L21 8H6.3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="20" r="1.4" fill="currentColor"/><circle cx="17" cy="20" r="1.4" fill="currentColor"/></svg>
+        <span class="cart-label">Basket</span>
+        <span class="cart-count" id="cartCount" aria-hidden="true">0</span>
+      </button>
+    </div>
+  </header>
+
+  <aside class="rail" aria-hidden="true">
+    <div class="rail-track"><span class="rail-fill" id="railFill"></span></div>
+    <ol>
+      <li data-i="0">Fresh</li>
+      <li data-i="1">Pantry</li>
+      <li data-i="2">Drinks</li>
+      <li data-i="3">Checkout</li>
+    </ol>
+  </aside>
+
+  <main id="main">
+    <div id="track">
+      <section class="hero" id="top" aria-labelledby="heroTitle">
+        <div class="hero-inner">
+          <p class="eyebrow"><span class="dot" aria-hidden="true"></span>The grocery you can walk through</p>
+          <h1 id="heroTitle"><span class="line">Walk the store.</span><span class="line accent">Skip the queue.</span></h1>
+          <p class="lede">AISLE is a whole supermarket rendered in your browser. Stroll the aisles, take things off the shelf, and we’ll have them at your door in thirty minutes.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#fresh">Start walking
+              <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 4v12m0 0-5-5m5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <span class="tip"><kbd>Hover</kbd> &amp; <kbd>click</kbd> anything on a shelf</span>
+          </div>
+        </div>
+        <div class="scroll-cue" aria-hidden="true"><span></span>Scroll to walk</div>
+      </section>
+
+      <section class="chapter" id="fresh" data-side="left" aria-labelledby="freshTitle">
+        <div class="chapter-inner">
+          <article class="chapter-card">
+            <p class="ch-num">Aisle 01</p>
+            <h2 id="freshTitle">Fresh</h2>
+            <p>Picked at dawn, on your shelf by noon. Fruit and veg from forty farms within 80&nbsp;km, sorted by ripeness — not by shelf life.</p>
+            <ul class="chips"><li>Harvest-dated</li><li>Wooden crates</li><li>Same-day</li></ul>
+            <button class="pick" data-name="Blood Oranges" data-price="3.20" data-color="#e8572a" data-zone="Fresh">
+              <span class="pick-sw" style="--c:#e8572a" aria-hidden="true"></span>
+              <span class="pick-txt">Aisle pick: Blood Oranges</span><span class="pick-price">$3.20</span><span class="pick-plus" aria-hidden="true">+</span>
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section class="chapter" id="pantry" data-side="right" aria-labelledby="pantryTitle">
+        <div class="chapter-inner">
+          <article class="chapter-card">
+            <p class="ch-num">Aisle 02</p>
+            <h2 id="pantryTitle">Pantry</h2>
+            <p>The slow staples. Stoneground flour, bronze-cut pasta and honey with a postcode — restocked weekly and priced like the corner shop never could.</p>
+            <ul class="chips"><li>1,200 staples</li><li>Bulk refills</li><li>No mark-ups</li></ul>
+            <button class="pick" data-name="Rigatoni No.7" data-price="2.60" data-color="#1f4fd8" data-zone="Pantry">
+              <span class="pick-sw" style="--c:#1f4fd8" aria-hidden="true"></span>
+              <span class="pick-txt">Aisle pick: Rigatoni No.7</span><span class="pick-price">$2.60</span><span class="pick-plus" aria-hidden="true">+</span>
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section class="chapter" id="drinks" data-side="left" aria-labelledby="drinksTitle">
+        <div class="chapter-inner">
+          <article class="chapter-card">
+            <p class="ch-num">Aisle 03</p>
+            <h2 id="drinksTitle">Drinks</h2>
+            <p>Cold, sparkling or brewed for eighteen hours. Every bottle chills in-store and travels to you in insulated totes, still beading.</p>
+            <ul class="chips"><li>Chilled to 4°C</li><li>Glass returns</li><li>Local brews</li></ul>
+            <button class="pick" data-name="Yuzu Sparkling" data-price="1.90" data-color="#f2c230" data-zone="Drinks">
+              <span class="pick-sw" style="--c:#f2c230" aria-hidden="true"></span>
+              <span class="pick-txt">Aisle pick: Yuzu Sparkling</span><span class="pick-price">$1.90</span><span class="pick-plus" aria-hidden="true">+</span>
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section class="chapter" id="checkout" data-side="center" aria-labelledby="checkoutTitle">
+        <div class="chapter-inner">
+          <article class="chapter-card">
+            <p class="ch-num">Lane 01</p>
+            <h2 id="checkoutTitle">Checkout</h2>
+            <p>No lanes, no beeps, no small talk. Your basket follows you down the aisle and checks out with one tap.</p>
+            <ul class="chips"><li>One-tap pay</li><li>Live courier</li><li>Free over $35</li></ul>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <section class="cta" id="till" aria-labelledby="tillTitle">
+      <div class="cta-inner">
+        <div class="cta-copy">
+          <p class="eyebrow"><span class="dot" aria-hidden="true"></span>The till</p>
+          <h2 id="tillTitle">Your basket is waiting <em>at the door.</em></h2>
+          <p class="lede">Pick a slot, tap once, and a courier on an e-cargo bike leaves the store before you’ve put the kettle on.</p>
+          <dl class="stats">
+            <div><dt>Average delivery</dt><dd><span data-count="27">27</span> min</dd></div>
+            <div><dt>Products on shelf</dt><dd><span id="statCount">4,000</span>+</dd></div>
+            <div><dt>Queues</dt><dd>0</dd></div>
+          </dl>
+        </div>
+
+        <div class="receipt" aria-live="polite">
+          <div class="receipt-head">
+            <span>AISLE · Lane 01</span><span id="receiptTime">—</span>
+          </div>
+          <ul class="receipt-list" id="basketList"></ul>
+          <p class="receipt-empty" id="basketEmpty">Your basket is empty. Scroll back up and take something off a shelf.</p>
+          <div class="slots" role="group" aria-label="Delivery slot">
+            <button class="slot" aria-pressed="true">ASAP · 30 min</button>
+            <button class="slot" aria-pressed="false">Tonight 6–7</button>
+            <button class="slot" aria-pressed="false">Tomorrow 9–10</button>
+          </div>
+          <div class="receipt-total"><span>Total</span><strong id="basketTotal">$0.00</strong></div>
+          <button class="btn btn-primary btn-wide" id="checkoutBtn">Check out <span id="checkoutAmt"></span></button>
+          <p class="receipt-note" id="checkoutNote" role="status"></p>
+          <div class="receipt-zig" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <footer class="foot">
+        <a href="https://github.com/tabishhassan5121472?tab=repositories" class="foot-back">← More projects</a>
+        <p>AISLE is a fictional brand. Designed &amp; built by <a href="https://github.com/tabishhassan5121472" target="_blank" rel="noopener">Tabish Hassan</a></p>
+      </footer>
+    </section>
+  </main>
+
+  <div class="pcard" id="pcard" role="dialog" aria-labelledby="pcName" hidden>
+    <button class="pc-close" id="pcClose" aria-label="Close product card">
+      <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 3l10 10M13 3 3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <div class="pc-swatch" id="pcSwatch" aria-hidden="true"><span></span></div>
+    <div class="pc-body">
+      <p class="pc-zone" id="pcZone">Fresh</p>
+      <h3 id="pcName">Product</h3>
+      <p class="pc-meta"><span class="pc-price" id="pcPrice">$0.00</span><span class="pc-unit" id="pcUnit">each</span></p>
+    </div>
+    <button class="pc-add" id="pcAdd">Add <span aria-hidden="true">+</span></button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+
+const { gsap, ScrollTrigger } = window;
+gsap.registerPlugin(ScrollTrigger);
+
+const $ = (s) => document.querySelector(s);
+const MOBILE = matchMedia('(max-width: 760px), (pointer: coarse)').matches;
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ------------------------------------------------------------------ *
+ * Seeded randomness so the store is stocked the same way every visit
+ * ------------------------------------------------------------------ */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(20261103);
+const rand = (a, b) => a + (b - a) * rng();
+const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+
+/* ------------------------------------------------------------------ *
+ * Store layout
+ * ------------------------------------------------------------------ */
+const FRONT = 2.15;           // x of shelf fronts (aisle half-width)
+const DEPTH = 0.62;
+const UNIT = 2.4;             // length of a shelving bay
+const LEVELS = [0.14, 0.6, 1.06, 1.52, 1.98];
+const ZONES = [
+  { key: 'fresh', label: 'Fresh', aisle: '01', z0: 2 },
+  { key: 'pantry', label: 'Pantry', aisle: '02', z0: -22 },
+  { key: 'drinks', label: 'Drinks', aisle: '03', z0: -46 },
+];
+const BAYS = 10;
+const STORE_END = -92;
+const CEIL = 3.4;
+const WALL_X = 3.25;
+const GAP = MOBILE ? 0.07 : 0.016;
+
+const C = {
+  cream: '#f6f1e9', board: '#f5f1ea', upright: '#e4ded3', back: '#ece5da',
+  cobalt: '#2350d8', tang: '#ff7a1a', kraft: '#c99f73', ink: '#262833', wall: '#f1eadf',
+};
+
+/* ------------------------------------------------------------------ *
+ * Catalogue
+ * ------------------------------------------------------------------ */
+const F = (n, c, p, s) => ({ n, c, p, t: 'fruit', s, unit: 'per 500 g' });
+const B = (n, c, p, w, h, d, unit = 'each') => ({ n, c, p, t: 'box', w, h, d, unit });
+const CN = (n, c, p, r, h, unit = 'each') => ({ n, c, p, t: 'can', r, h, unit });
+const BT = (n, c, p, r, h, unit = 'each') => ({ n, c, p, t: 'bottle', r, h, unit });
+
+const CAT = {
+  fresh: {
+    fruit: [
+      F('Blood Oranges', '#e8572a', 3.2, 0.074), F('Field Apples', '#d42a3c', 2.8, 0.072),
+      F('Key Limes', '#79c043', 1.9, 0.054), F('Sun Lemons', '#ffd23f', 2.1, 0.066),
+      F('Plum Tomatoes', '#e63946', 2.4, 0.062), F('Hass Avocados', '#3f6a2e', 4.5, 0.078),
+      F('Comice Pears', '#b9c94b', 3.1, 0.07), F('Red Onions', '#93406f', 1.4, 0.066),
+      F('White Peaches', '#ffa36b', 3.6, 0.072), F('Black Plums', '#4b1f4f', 3.3, 0.058),
+    ],
+    upper: [
+      B('Wild Blueberries', '#3b4fb0', 4.2, 0.14, 0.07, 0.12), B('Strawberries', '#e8336d', 3.8, 0.14, 0.08, 0.12),
+      B('Farm Eggs ×6', '#f2c94c', 3.4, 0.16, 0.07, 0.1), CN('Oat Yogurt', '#9fd2ec', 1.6, 0.046, 0.1),
+      B('Cultured Butter', '#f6d365', 3.9, 0.12, 0.05, 0.08), CN('Greek Feta', '#5fb3a3', 3.3, 0.052, 0.08),
+      B('Snap Peas', '#5bbf3a', 2.7, 0.15, 0.06, 0.1), B('Sourdough Loaf', '#d9a066', 4.8, 0.22, 0.13, 0.14),
+    ],
+  },
+  pantry: {
+    lower: [
+      CN('Chopped Tomatoes', '#d62828', 1.2, 0.042, 0.11), CN('Chickpeas', '#e9b949', 0.9, 0.042, 0.11),
+      CN('Coconut Milk', '#2ec4a6', 1.7, 0.042, 0.1), CN('Black Beans', '#2b2d42', 1.0, 0.042, 0.11),
+      CN('Wildflower Honey', '#f4a259', 6.5, 0.05, 0.13), CN('Peanut Butter', '#b5835a', 3.9, 0.05, 0.12),
+      CN('Olive Tapenade', '#606c38', 4.2, 0.044, 0.1), CN('Apricot Jam', '#ff9f43', 3.6, 0.046, 0.12),
+    ],
+    upper: [
+      B('Golden Oat Clusters', '#ff7a1a', 4.4, 0.2, 0.3, 0.26), B('Cocoa Crunch', '#6b3f2a', 4.2, 0.2, 0.3, 0.26),
+      B('Rigatoni No.7', '#1f4fd8', 2.6, 0.1, 0.24, 0.2), B('Spaghetti No.5', '#e63946', 2.4, 0.09, 0.27, 0.16),
+      B('Earl Grey Tea', '#2e3a87', 3.1, 0.14, 0.08, 0.1), B('Stoneground Flour', '#e8d9bd', 2.2, 0.16, 0.26, 0.1),
+      B('Basmati Rice', '#2ec4a6', 3.8, 0.15, 0.22, 0.08), B('Sea Salt Crackers', '#ffd23f', 2.9, 0.2, 0.08, 0.14),
+      B('Muesli Bircher', '#8bc34a', 4.9, 0.18, 0.28, 0.22), B('Red Lentils', '#ef6f3c', 1.8, 0.12, 0.2, 0.08),
+    ],
+  },
+  drinks: {
+    big: [
+      BT('Spring Water 1.5L', '#8fd3f4', 1.1, 0.052, 0.34), BT('Pressed Apple 1L', '#c6d84a', 3.4, 0.048, 0.31),
+      BT('Olive Oil Extra', '#6a7f2a', 8.9, 0.042, 0.3), BT('Cold Brew 1L', '#3d2b1f', 5.2, 0.046, 0.3),
+    ],
+    mid: [
+      BT('Yuzu Sparkling', '#f2c230', 1.9, 0.034, 0.24), BT('Hibiscus Tonic', '#e8336d', 2.1, 0.034, 0.24),
+      BT('Blood Orange Soda', '#ff7a1a', 1.8, 0.034, 0.22), BT('Kombucha Ginger', '#f4a259', 3.2, 0.04, 0.27),
+      BT('Elderflower Press', '#dfe6a8', 2.6, 0.036, 0.26), BT('Cascara Iced Tea', '#a33b2b', 2.4, 0.036, 0.24),
+    ],
+    cans: [
+      CN('Lime Seltzer', '#7cc142', 1.2, 0.034, 0.124), CN('Cola Nova', '#c1121f', 1.1, 0.034, 0.124),
+      CN('Mango Lassi', '#ffb347', 1.9, 0.034, 0.124), CN('Nitro Coffee', '#1d1d27', 2.7, 0.034, 0.124),
+      CN('Lemon Ice Tea', '#f9dc5c', 1.3, 0.034, 0.124), CN('Grapefruit Fizz', '#ff6b6b', 1.2, 0.034, 0.124),
+    ],
+    cartons: [
+      B('Oat Milk', '#e9e3d5', 2.1, 0.095, 0.24, 0.095), B('Orange Juice', '#ff9f1c', 2.8, 0.095, 0.24, 0.095),
+      B('Almond Milk', '#cfb997', 2.4, 0.095, 0.24, 0.095), B('Whole Milk', '#3b6fe0', 1.6, 0.095, 0.24, 0.095),
+    ],
+  },
+  till: [
+    B('Sea Salt Caramels', '#ff7a1a', 1.5, 0.12, 0.03, 0.07), B('Dark Chocolate 72%', '#3b2418', 2.2, 0.14, 0.02, 0.08),
+    B('Mint Tins', '#2ec4a6', 1.2, 0.07, 0.02, 0.05),
+  ],
+};
+
+/* ------------------------------------------------------------------ *
+ * Renderer / scene
+ * ------------------------------------------------------------------ */
+const canvas = $('#scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE, powerPreference: 'high-performance' });
+const DPR = Math.min(window.devicePixelRatio || 1, MOBILE ? 1.5 : 2);
+renderer.setPixelRatio(DPR);
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(C.cream);
+scene.fog = new THREE.Fog(C.cream, 12, 50);
+
+const camera = new THREE.PerspectiveCamera(MOBILE ? 66 : 54, innerWidth / innerHeight, 0.05, 120);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+pmrem.dispose();
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xe9dccb, 0.9));
+const keyL = new THREE.DirectionalLight(0xfff4e6, 0.9); keyL.position.set(1, 1.4, 0.4); scene.add(keyL);
+const keyR = new THREE.DirectionalLight(0xf2f5ff, 0.75); keyR.position.set(-1, 1.4, 0.2); scene.add(keyR);
+
+const tmpM = new THREE.Matrix4();
+const tmpQ = new THREE.Quaternion();
+const tmpV = new THREE.Vector3();
+const tmpS = new THREE.Vector3();
+const tmpC = new THREE.Color();
+const UP = new THREE.Vector3(0, 1, 0);
+
+/* ------------------------------------------------------------------ *
+ * Canvas textures
+ * ------------------------------------------------------------------ */
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function toTex(c, repeat) {
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+  return t;
+}
+
+function floorTexture() {
+  const c = makeCanvas(512, 512), g = c.getContext('2d');
+  const r2 = mulberry32(7);
+  g.fillStyle = '#d9d1c4'; g.fillRect(0, 0, 512, 512);
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+    const l = 92 + r2() * 3;
+    g.fillStyle = `hsl(36, 30%, ${l}%)`;
+    g.fillRect(x * 128 + 2, y * 128 + 2, 124, 124);
+    const grd = g.createLinearGradient(x * 128, y * 128, x * 128 + 128, y * 128 + 128);
+    grd.addColorStop(0, 'rgba(255,255,255,.25)'); grd.addColorStop(1, 'rgba(0,0,0,.03)');
+    g.fillStyle = grd; g.fillRect(x * 128 + 2, y * 128 + 2, 124, 124);
+  }
+  // a cobalt guide stripe down the middle tile column edge
+  return toTex(c, [6.5 / 2.4, 110 / 2.4]);
+}
+
+function shadowTexture() {
+  const c = makeCanvas(256, 4), g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 256, 0);
+  grd.addColorStop(0, 'rgba(50,38,26,.42)'); grd.addColorStop(0.35, 'rgba(50,38,26,.14)'); grd.addColorStop(1, 'rgba(50,38,26,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 4);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+
+function signTexture(title, num, sub, accent = C.tang) {
+  const W = 1024, H = 400, c = makeCanvas(W, H), g = c.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#2a5ae6'); bg.addColorStop(1, '#1a43c2');
+  roundRect(g, 0, 0, W, H, 54); g.fillStyle = bg; g.fill();
+  // inner bevel
+  roundRect(g, 10, 10, W - 20, H - 20, 46); g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 4; g.stroke();
+  // number badge
+  g.fillStyle = accent; g.beginPath(); g.arc(150, H / 2, 92, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(128, H / 2 - 26, 40, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '800 104px "Bricolage Grotesque", system-ui, sans-serif';
+  g.fillText(num, 150, H / 2 + 6);
+  g.textAlign = 'left';
+  g.font = '800 168px "Bricolage Grotesque", system-ui, sans-serif';
+  g.fillText(title, 290, H / 2 - 22);
+  g.font = '500 40px "DM Mono", ui-monospace, monospace';
+  g.fillStyle = 'rgba(255,255,255,.78)';
+  g.fillText(sub, 296, H / 2 + 104);
+  return toTex(c);
+}
+
+function muralTexture() {
+  const W = 2048, H = 1024, c = makeCanvas(W, H), g = c.getContext('2d');
+  g.fillStyle = C.wall; g.fillRect(0, 0, W, H);
+  const grd = g.createRadialGradient(W / 2, H * 0.6, 40, W / 2, H * 0.6, W * 0.6);
+  grd.addColorStop(0, 'rgba(255,122,26,.18)'); grd.addColorStop(1, 'rgba(255,122,26,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  g.fillStyle = C.cobalt; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '800 420px "Bricolage Grotesque", system-ui, sans-serif';
+  g.fillText('AISLE', W / 2, H * 0.6);
+  g.fillStyle = C.tang; g.beginPath(); g.arc(W / 2 + 560, H * 0.6 - 150, 52, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#353849';
+  g.font = '500 64px "DM Mono", ui-monospace, monospace';
+  g.fillText('THANKS FOR WALKING  ·  SEE YOU AT THE DOOR', W / 2, H * 0.86);
+  return toTex(c);
+}
+
+/* ------------------------------------------------------------------ *
+ * Product materials (instanced, label band + hover glow in shader)
+ * ------------------------------------------------------------------ */
+function productMaterial(params, band, label) {
+  const mat = new THREE.MeshStandardMaterial(params);
+  const u = {
+    uHover: { value: -1 }, uSel: { value: -1 }, uTime: { value: 0 },
+    uBand: { value: new THREE.Vector2(band[0], band[1]) }, uLabel: { value: label ? 1 : 0 },
+    uLabelColor: { value: new THREE.Color('#fbf8f1') },
+  };
+  mat.userData.u = u;
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+        uniform float uHover; uniform float uSel; varying float vHi; varying vec2 vPUv;`)
+      .replace('#include <uv_vertex>', `#include <uv_vertex>
+        vPUv = uv;
+        float iid = float(gl_InstanceID);
+        vHi = max(1.0 - step(0.5, abs(iid - uHover)), 1.0 - step(0.5, abs(iid - uSel)));`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uTime; uniform vec2 uBand; uniform float uLabel; uniform vec3 uLabelColor;
+        varying float vHi; varying vec2 vPUv;`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float bA = smoothstep(uBand.x, uBand.x + 0.012, vPUv.y) * (1.0 - smoothstep(uBand.y - 0.012, uBand.y, vPUv.y));
+        diffuseColor.rgb = mix(diffuseColor.rgb, uLabelColor, bA * uLabel);
+        float st = smoothstep(uBand.y + 0.02, uBand.y + 0.03, vPUv.y) * (1.0 - smoothstep(uBand.y + 0.06, uBand.y + 0.07, vPUv.y));
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.62, st * uLabel);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        totalEmissiveRadiance += (vec3(1.0, 0.42, 0.08) * (0.34 + 0.14 * sin(uTime * 5.0)) + diffuseColor.rgb * 0.22) * vHi;`);
+  };
+  return mat;
+}
+
+// Geometries — caps / tops get uv.y = 0 so the label band never appears on them
+function boxGeo() {
+  const g = new THREE.BoxGeometry(1, 1, 1);
+  const uv = g.attributes.uv;
+  for (const grp of [g.groups[2], g.groups[3]]) {
+    for (let i = grp.start; i < grp.start + grp.count; i++) uv.setY(g.index.getX(i), 0.0);
+  }
+  return g;
+}
+function canGeo() {
+  const seg = MOBILE ? 12 : 20;
+  const g = new THREE.CylinderGeometry(0.5, 0.5, 1, seg, 1);
+  const uv = g.attributes.uv;
+  for (const grp of g.groups.slice(1)) {
+    for (let i = grp.start; i < grp.start + grp.count; i++) uv.setY(g.index.getX(i), 0.0);
+  }
+  return g;
+}
+function bottleGeo() {
+  const prof = [[0, 0], [0.4, 0], [0.47, 0.02], [0.5, 0.07], [0.5, 0.5], [0.48, 0.58], [0.38, 0.68],
+    [0.22, 0.77], [0.16, 0.83], [0.16, 0.93], [0.19, 0.94], [0.19, 1.0], [0, 1.0]]
+    .map(([x, y]) => new THREE.Vector2(x, y));
+  const g = new THREE.LatheGeometry(prof, MOBILE ? 10 : 16);
+  const pos = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setY(i, pos.getY(i));
+  g.translate(0, -0.5, 0);
+  g.computeVertexNormals();
+  return g;
+}
+
+/* ------------------------------------------------------------------ *
+ * Stocking the shelves
+ * ------------------------------------------------------------------ */
+const buckets = { box: [], can: [], bottle: [], fruit: [] };
+const structure = []; // {p:[x,y,z], s:[x,y,z], c}
+
+function addStruct(x, y, z, sx, sy, sz, c) { structure.push({ x, y, z, sx, sy, sz, c }); }
+
+function addItem(sku, zone, side, cz, y, xBack = 0, yLift = 0, xAbs = null) {
+  let w, h, d;
+  if (sku.t === 'box') { w = sku.w; h = sku.h; d = sku.d; }
+  else if (sku.t === 'fruit') { w = h = d = sku.s * rand(0.9, 1.08); }
+  else { w = d = sku.r * 2; h = sku.h; }
+  const x = xAbs !== null ? side * (xAbs - d / 2) : side * (FRONT + 0.035 + d / 2 + xBack + rand(0, 0.012));
+  const item = {
+    sku, zone, side,
+    pos: new THREE.Vector3(x, y + h / 2 + yLift, cz),
+    scale: new THREE.Vector3(sku.t === 'box' ? d : w, h, sku.t === 'box' ? w : d),
+    rotY: sku.t === 'fruit' ? rand(0, Math.PI * 2) : rand(-0.07, 0.07),
+  };
+  buckets[sku.t].push(item);
+  return item;
+}
+
+function itemWidth(sku) { return sku.t === 'box' ? sku.w : sku.t === 'fruit' ? sku.s : sku.r * 2; }
+
+function fillRow(pool, zone, side, zStart, zEnd, y) {
+  let z = zStart;
+  while (z > zEnd) {
+    const sku = pick(pool);
+    const w = itemWidth(sku);
+    const facings = MOBILE ? 1 + Math.floor(rng() * 3) : 2 + Math.floor(rng() * 4);
+    let placed = 0;
+    for (let f = 0; f < facings; f++) {
+      if (z - w < zEnd) break;
+      const cz = z - w / 2;
+      const stack = sku.t === 'box' && sku.h < 0.13 ? Math.min(MOBILE ? 2 : 3, Math.floor(0.34 / sku.h)) : 1;
+      for (let s = 0; s < stack; s++) addItem(sku, zone, side, cz, y, 0, s * (sku.h + 0.002));
+      z -= w + GAP; placed++;
+    }
+    z -= placed ? GAP * 2.5 : w + GAP;
+  }
+}
+
+function fillCrates(zone, side, zStart, zEnd, y) {
+  let z = zStart;
+  while (z > zEnd + 0.3) {
+    const len = Math.min(rand(0.5, 0.72), z - zEnd);
+    const sku = pick(CAT.fresh.fruit);
+    const cz = z - len / 2;
+    // crate: base + front lip
+    addStruct(side * (FRONT + 0.3), y + 0.03, cz, 0.54, 0.06, len - 0.03, C.kraft);
+    addStruct(side * (FRONT + 0.045), y + 0.065, cz, 0.02, 0.11, len - 0.03, '#b98b5e');
+    const rows = MOBILE ? 1 : 2;
+    const n = Math.floor((len - 0.05) / (sku.s * 1.04));
+    for (let r = 0; r < rows; r++) {
+      for (let i = 0; i < n; i++) {
+        const fz = z - 0.03 - sku.s * 0.52 - i * sku.s * 1.04 - (r % 2) * sku.s * 0.3;
+        if (fz < zEnd + 0.04) continue;
+        addItem(sku, zone, side, fz, y + 0.04, 0.02 + r * sku.s * 1.05, r === 0 ? 0 : sku.s * 0.35);
+      }
+    }
+    z -= len;
+  }
+}
+
+function buildBay(zone, side, z0) {
+  const z1 = z0 - UNIT, cz = z0 - UNIT / 2, bx = side * (FRONT + DEPTH / 2);
+  addStruct(bx, 0.07, cz, DEPTH - 0.02, 0.14, UNIT, C.cobalt);             // kick plate
+  addStruct(side * (FRONT + DEPTH + 0.02), 1.3, cz, 0.03, 2.6, UNIT, C.back); // back panel
+  addStruct(bx, 1.32, z0 - 0.02, DEPTH, 2.64, 0.04, C.upright);           // upright
+  addStruct(side * (FRONT + 0.04), 2.53, cz, 0.06, 0.18, UNIT, C.cobalt);   // header
+  addStruct(side * (FRONT + 0.035), 2.43, cz, 0.065, 0.025, UNIT, C.tang);  // header accent
+  LEVELS.forEach((y, li) => {
+    if (li > 0) addStruct(bx, y - 0.018, cz, DEPTH, 0.035, UNIT - 0.04, C.board);
+    addStruct(side * (FRONT + 0.012), y - 0.03, cz, 0.026, 0.06, UNIT - 0.04, C.cobalt); // trim
+    for (let t = 0; t < 4; t++) {
+      const tz = z0 - 0.3 - t * 0.6;
+      addStruct(side * (FRONT - 0.004), y - 0.03, tz, 0.01, 0.042, 0.1, t % 2 ? '#fffaf2' : C.tang); // price tags
+    }
+    const za = z0 - 0.06, zb = z1 + 0.06;
+    if (zone.key === 'fresh') {
+      if (li < 3) fillCrates(zone, side, za, zb, y); else fillRow(CAT.fresh.upper, zone, side, za, zb, y);
+    } else if (zone.key === 'pantry') {
+      fillRow(li < 2 ? CAT.pantry.lower : CAT.pantry.upper, zone, side, za, zb, y);
+    } else {
+      const pool = li === 0 ? CAT.drinks.big : li < 3 ? CAT.drinks.mid : li === 3 ? CAT.drinks.cans : CAT.drinks.cartons;
+      fillRow(pool, zone, side, za, zb, y);
+    }
+  });
+}
+
+ZONES.forEach((zone, zi) => {
+  for (let b = 0; b < BAYS; b++) for (const side of [-1, 1]) buildBay(zone, side, zone.z0 - b * UNIT);
+  // zone boundary pillars with tangerine caps
+  for (const side of [-1, 1]) {
+    addStruct(side * (FRONT + 0.06), 1.35, zone.z0, 0.16, 2.7, 0.16, C.cobalt);
+    if (zi === ZONES.length - 1) addStruct(side * (FRONT + 0.06), 1.35, zone.z0 - BAYS * UNIT, 0.16, 2.7, 0.16, C.cobalt);
+  }
+});
+const AISLE_END = ZONES[ZONES.length - 1].z0 - BAYS * UNIT; // -70
+
+// Checkout lanes
+const TILL_ZONE = { key: 'till', label: 'Checkout', aisle: 'L1' };
+for (const side of [-1, 1]) {
+  const x = side * 1.85, z = -82;
+  addStruct(x, 0.45, z, 0.8, 0.9, 3.4, C.cobalt);
+  addStruct(x, 0.915, z + 0.2, 0.66, 0.035, 2.8, C.ink);
+  addStruct(x, 0.92, z - 1.45, 0.82, 0.05, 0.4, '#fffaf2');
+  addStruct(x - side * 0.1, 1.12, z - 1.45, 0.3, 0.32, 0.26, '#fffaf2');
+  addStruct(x - side * 0.1, 1.2, z - 1.31, 0.24, 0.16, 0.01, '#20232e');
+  addStruct(x + side * 0.0, 0.08, z, 0.82, 0.16, 3.42, '#16328c');
+  addStruct(x - side * 0.52, 1.25, z + 1.6, 0.05, 2.5, 0.05, '#d8d1c5'); // lane pole
+  // impulse rack
+  addStruct(x - side * 0.5, 0.7, z + 0.6, 0.22, 1.4, 1.4, '#efe9df');
+  for (let r = 0; r < 4; r++) {
+    const ry = 0.32 + r * 0.3;
+    addStruct(side * 1.17, ry - 0.01, z + 0.6, 0.14, 0.02, 1.36, '#fffaf2');
+    let zz = z + 1.25;
+    while (zz > z - 0.05) {
+      const sku = pick(CAT.till);
+      addItem(sku, TILL_ZONE, side, zz - sku.w / 2, ry, 0, 0, 1.235);
+      zz -= sku.w + 0.03;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Build meshes
+ * ------------------------------------------------------------------ */
+// structure
+{
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.42, metalness: 0.05, envMapIntensity: 0.9 });
+  const mesh = new THREE.InstancedMesh(geo, mat, structure.length);
+  structure.forEach((s, i) => {
+    tmpM.compose(tmpV.set(s.x, s.y, s.z), tmpQ.identity(), tmpS.set(s.sx, s.sy, s.sz));
+    mesh.setMatrixAt(i, tmpM);
+    mesh.setColorAt(i, tmpC.set(s.c));
+  });
+  scene.add(mesh);
+}
+
+const MATS = {
+  box: productMaterial({ roughness: 0.5, metalness: 0.0 }, [0.36, 0.64], true),
+  can: productMaterial({ roughness: 0.32, metalness: 0.35 }, [0.3, 0.7], true),
+  bottle: productMaterial({ roughness: 0.12, metalness: 0.08, envMapIntensity: 1.3 }, [0.2, 0.46], true),
+  fruit: productMaterial({ roughness: 0.48, metalness: 0.0 }, [0, 0], false),
+};
+const GEOS = { box: boxGeo(), can: canGeo(), bottle: bottleGeo(), fruit: new THREE.SphereGeometry(0.5, MOBILE ? 10 : 14, MOBILE ? 7 : 10) };
+
+const products = [];
+let totalItems = 0;
+for (const type of Object.keys(buckets)) {
+  const list = buckets[type];
+  if (!list.length) continue;
+  const mesh = new THREE.InstancedMesh(GEOS[type], MATS[type], list.length);
+  mesh.userData = { type, items: list };
+  list.forEach((it, i) => {
+    tmpQ.setFromAxisAngle(UP, it.rotY);
+    tmpM.compose(it.pos, tmpQ, it.scale);
+    mesh.setMatrixAt(i, tmpM);
+    tmpC.set(it.sku.c).offsetHSL(rand(-0.008, 0.008), 0, rand(-0.03, 0.03));
+    mesh.setColorAt(i, tmpC);
+  });
+  mesh.computeBoundingSphere();
+  scene.add(mesh);
+  products.push(mesh);
+  totalItems += list.length;
+}
+
+// Floor (reflective on desktop)
+const floorLen = 112, floorZ = (12 + STORE_END) / 2;
+if (!MOBILE) {
+  const refl = new Reflector(new THREE.PlaneGeometry(WALL_X * 2, floorLen), {
+    clipBias: 0.003,
+    textureWidth: Math.round(innerWidth * DPR * 0.5),
+    textureHeight: Math.round(innerHeight * DPR * 0.5),
+    color: 0xb8b0a4,
+  });
+  refl.rotation.x = -Math.PI / 2;
+  refl.position.set(0, -0.001, floorZ);
+  scene.add(refl);
+}
+{
+  const floorMat = new THREE.MeshStandardMaterial({
+    map: floorTexture(), roughness: 0.22, metalness: 0.0, envMapIntensity: 0.9,
+    transparent: !MOBILE, opacity: MOBILE ? 1 : 0.8,
+  });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(WALL_X * 2, floorLen), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, 0, floorZ);
+  scene.add(floor);
+
+  // centre guide line
+  const guide = new THREE.Mesh(new THREE.PlaneGeometry(0.05, AISLE_END * -1 + 2),
+    new THREE.MeshBasicMaterial({ color: C.tang, transparent: true, opacity: 0.55 }));
+  guide.rotation.x = -Math.PI / 2; guide.position.set(0, 0.003, (2 + AISLE_END) / 2);
+  scene.add(guide);
+
+  // soft contact shadows at shelf bases
+  const sTex = shadowTexture();
+  const len = 2 - AISLE_END;
+  for (const side of [-1, 1]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, len),
+      new THREE.MeshBasicMaterial({ map: sTex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    m.rotation.x = -Math.PI / 2;
+    if (side === 1) m.scale.x = -1;
+    m.position.set(side * (FRONT - 0.45), 0.004, (2 + AISLE_END) / 2);
+    scene.add(m);
+  }
+}
+
+// Walls, ceiling, light strips
+const endWall = new THREE.Mesh(new THREE.PlaneGeometry(WALL_X * 2, CEIL), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85 }));
+{
+  const wallMat = new THREE.MeshStandardMaterial({ color: C.wall, roughness: 0.8 });
+  for (const side of [-1, 1]) {
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(floorLen, CEIL), wallMat);
+    w.rotation.y = -side * Math.PI / 2; w.position.set(side * WALL_X, CEIL / 2, floorZ);
+    scene.add(w);
+    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(floorLen, 0.08), new THREE.MeshBasicMaterial({ color: C.tang }));
+    stripe.rotation.y = -side * Math.PI / 2; stripe.position.set(side * (WALL_X - 0.005), 2.95, floorZ);
+    scene.add(stripe);
+  }
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(WALL_X * 2, floorLen),
+    new THREE.MeshStandardMaterial({ color: '#f8f4ee', roughness: 0.9, emissive: '#f3ece2', emissiveIntensity: 0.25 }));
+  ceil.rotation.x = Math.PI / 2; ceil.position.set(0, CEIL, floorZ);
+  scene.add(ceil);
+
+  endWall.position.set(0, CEIL / 2, STORE_END);
+  scene.add(endWall);
+
+  const segs = [];
+  for (let z = 10; z > STORE_END + 2; z -= 3.2) segs.push(z);
+  const strip = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), segs.length * 2);
+  const housing = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshStandardMaterial({ color: '#d9d3c9', roughness: 0.5 }), segs.length * 2);
+  let k = 0;
+  for (const z of segs) for (const x of [-0.95, 0.95]) {
+    tmpM.compose(tmpV.set(x, CEIL - 0.06, z), tmpQ.identity(), tmpS.set(0.14, 0.02, 2.7)); strip.setMatrixAt(k, tmpM);
+    tmpM.compose(tmpV.set(x, CEIL - 0.035, z), tmpQ.identity(), tmpS.set(0.22, 0.05, 2.78)); housing.setMatrixAt(k, tmpM);
+    k++;
+  }
+  scene.add(housing, strip);
+}
+
+
+/* ------------------------------------------------------------------ *
+ * Hanging signs (canvas text) — drawn after fonts are ready
+ * ------------------------------------------------------------------ */
+const signs = [];
+const SIGN_DEFS = [
+  { title: 'Fresh', num: '01', sub: 'PRODUCE · DAIRY · BAKERY', z: 0.4 },
+  { title: 'Pantry', num: '02', sub: 'GRAINS · TINS · SPREADS', z: -21.4 },
+  { title: 'Drinks', num: '03', sub: 'SPARKLING · JUICE · BREWS', z: -45.4 },
+  { title: 'Checkout', num: 'L1', sub: 'ONE TAP · NO QUEUES', z: -86.5 },
+];
+const signGeo = new THREE.PlaneGeometry(2.5, 0.977);
+const signBack = new THREE.MeshStandardMaterial({ color: '#1a43c2', roughness: 0.4 });
+const wireMat = new THREE.MeshStandardMaterial({ color: '#8b8b8b', metalness: 0.6, roughness: 0.4 });
+for (const d of SIGN_DEFS) {
+  const g = new THREE.Group();
+  g.position.set(0, 2.72, d.z);
+  const face = new THREE.Mesh(signGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true }));
+  face.position.z = 0.021;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.44, 0.92, 0.04), signBack);
+  g.add(body, face);
+  for (const x of [-0.9, 0.9]) {
+    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, CEIL - 2.72 - 0.46, 5), wireMat);
+    wire.position.set(x, 0.46 + (CEIL - 2.72 - 0.46) / 2, 0);
+    g.add(wire);
+  }
+  g.userData = { def: d, face, phase: rng() * 6 };
+  scene.add(g);
+  signs.push(g);
+}
+
+async function drawSigns() {
+  try {
+    await Promise.race([
+      Promise.all([
+        document.fonts.load('800 168px "Bricolage Grotesque"'),
+        document.fonts.load('500 40px "DM Mono"'),
+      ]),
+      new Promise((r) => setTimeout(r, 2500)),
+    ]);
+  } catch (e) { /* fall back to system fonts */ }
+  for (const s of signs) {
+    const { def, face } = s.userData;
+    face.material.map = signTexture(def.title, def.num, def.sub, def.num === 'L1' ? '#2fbf71' : C.tang);
+    face.material.needsUpdate = true;
+  }
+  endWall.material.map = muralTexture();
+  endWall.material.needsUpdate = true;
+}
+
+/* ------------------------------------------------------------------ *
+ * Camera path
+ * ------------------------------------------------------------------ */
+const track = $('#track');
+const chapters = [...document.querySelectorAll('.chapter')];
+let KEYS = [];
+const YAW = MOBILE ? 0.14 : 0.3;
+function computeKeys() {
+  const range = Math.max(1, track.offsetHeight - innerHeight);
+  const pc = chapters.map((c) => (c.offsetTop + (c.offsetHeight - innerHeight) / 2) / range);
+  KEYS = [
+    { p: 0, z: 7.2, yaw: 0 },
+    { p: pc[0], z: -8.5, yaw: -YAW },
+    { p: pc[1], z: -32.5, yaw: YAW },
+    { p: pc[2], z: -56.5, yaw: -YAW },
+    { p: pc[3], z: -76.8, yaw: 0 },
+    { p: 1, z: -77.6, yaw: 0 },
+  ];
+}
+computeKeys();
+
+function sampleCam(p) {
+  let i = 0;
+  while (i < KEYS.length - 2 && p > KEYS[i + 1].p) i++;
+  const a = KEYS[i], b = KEYS[i + 1];
+  let t = THREE.MathUtils.clamp((p - a.p) / Math.max(1e-5, b.p - a.p), 0, 1);
+  t = t * t * (3 - 2 * t);
+  return { z: a.z + (b.z - a.z) * t, yaw: a.yaw + (b.yaw - a.yaw) * t };
+}
+
+let targetP = 0, curP = 0;
+const intro = { t: REDUCED ? 1 : 0 };
+const pointer = { x: 0, y: 0, sx: 0, sy: 0, ndc: new THREE.Vector2(9, 9), dirty: false, onCanvas: false };
+
+function updateCamera() {
+  const { z, yaw } = sampleCam(curP);
+  const bobAmt = REDUCED ? 0 : 1;
+  const phase = z * 2.3;
+  const it = 1 - intro.t;
+  const x = Math.sin(phase * 0.5) * 0.035 * bobAmt;
+  const y = 1.62 + Math.abs(Math.sin(phase)) * 0.028 * bobAmt + it * 0.9;
+  const zz = z + it * 6;
+  const yw = yaw - pointer.sx * 0.06 + it * 0.12;
+  const pitch = (MOBILE ? -0.13 : -0.07) + pointer.sy * 0.035 - it * 0.12;
+  camera.position.set(x, y, zz);
+  camera.lookAt(x - Math.sin(yw), y + pitch, zz - Math.cos(yw));
+  camera.rotateZ(Math.sin(phase * 0.5) * 0.004 * bobAmt);
+}
+
+/* ------------------------------------------------------------------ *
+ * Hover / select / remove animations
+ * ------------------------------------------------------------------ */
+const raycaster = new THREE.Raycaster();
+raycaster.far = 9;
+let hover = null; // {mesh, id}
+let selected = null;
+const anims = new Map(); // key -> {mesh,id,t,target,gone,goneTarget}
+const removed = new Set();
+const keyOf = (mesh, id) => mesh.userData.type + ':' + id;
+
+function setAnim(mesh, id, patch) {
+  const k = keyOf(mesh, id);
+  let a = anims.get(k);
+  if (!a) { a = { mesh, id, t: 0, target: 0, gone: 0, goneTarget: 0 }; anims.set(k, a); }
+  Object.assign(a, patch);
+}
+
+function setHover(h) {
+  if (hover && h && hover.mesh === h.mesh && hover.id === h.id) return;
+  if (hover) { hover.mesh.material.userData.u.uHover.value = -1; if (!isSel(hover)) setAnim(hover.mesh, hover.id, { target: 0 }); }
+  hover = h;
+  if (h) { h.mesh.material.userData.u.uHover.value = h.id; setAnim(h.mesh, h.id, { target: 1 }); }
+  canvas.style.cursor = h ? 'pointer' : '';
+}
+const isSel = (h) => selected && h && selected.mesh === h.mesh && selected.id === h.id;
+
+function stepAnims(dt) {
+  const k = REDUCED ? 1 : 1 - Math.pow(0.0008, dt);
+  const touched = new Set();
+  for (const [key, a] of anims) {
+    a.t += (a.target - a.t) * k;
+    a.gone += (a.goneTarget - a.gone) * (REDUCED ? 1 : 1 - Math.pow(0.002, dt));
+    const it = a.mesh.userData.items[a.id];
+    const s = a.goneTarget === 1 && a.gone > 0.99 ? 0 : (1 + 0.14 * a.t) * (1 - a.gone);
+    tmpV.copy(it.pos);
+    tmpV.x -= Math.sign(it.pos.x) * (0.06 * a.t + 0.25 * a.gone);
+    tmpV.y += 0.03 * a.t + 0.12 * a.gone;
+    tmpQ.setFromAxisAngle(UP, it.rotY + a.t * 0.18 * -Math.sign(it.pos.x) + a.gone * 2);
+    tmpS.copy(it.scale).multiplyScalar(Math.max(s, 0.0001));
+    tmpM.compose(tmpV, tmpQ, tmpS);
+    a.mesh.setMatrixAt(a.id, tmpM);
+    touched.add(a.mesh);
+    if (Math.abs(a.target - a.t) < 0.002 && Math.abs(a.goneTarget - a.gone) < 0.002 && a.target === 0 && (a.goneTarget === 0 || a.gone > 0.99)) {
+      anims.delete(key);
+    }
+  }
+  touched.forEach((m) => { m.instanceMatrix.needsUpdate = true; });
+}
+
+function raycast() {
+  raycaster.setFromCamera(pointer.ndc, camera);
+  const hits = raycaster.intersectObjects(products, false);
+  for (const h of hits) {
+    if (h.instanceId == null) continue;
+    if (removed.has(keyOf(h.object, h.instanceId))) continue;
+    return { mesh: h.object, id: h.instanceId };
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Product card
+ * ------------------------------------------------------------------ */
+const pcard = $('#pcard');
+const pcAdd = $('#pcAdd');
+const fmt = (n) => '$' + n.toFixed(2);
+
+function openCard(h) {
+  if (selected) closeCard(true);
+  selected = h;
+  const it = h.mesh.userData.items[h.id];
+  h.mesh.material.userData.u.uSel.value = h.id;
+  setAnim(h.mesh, h.id, { target: 1 });
+  $('#pcName').textContent = it.sku.n;
+  $('#pcZone').textContent = `${it.zone.label} · ${it.zone.key === 'till' ? 'Lane 01' : 'Aisle ' + it.zone.aisle}`;
+  $('#pcPrice').textContent = fmt(it.sku.p);
+  $('#pcUnit').textContent = it.sku.unit;
+  const sw = $('#pcSwatch');
+  sw.dataset.type = it.sku.t;
+  sw.style.setProperty('--c', it.sku.c);
+  pcAdd.classList.remove('is-added');
+  pcAdd.innerHTML = 'Add <span aria-hidden="true">+</span>';
+  pcAdd.disabled = false;
+  pcard.hidden = false;
+  positionCard();
+  if (!REDUCED) gsap.fromTo(pcard, { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2)' });
+  pcAdd.focus({ preventScroll: true });
+}
+
+function closeCard(silent) {
+  if (!selected) return;
+  const s = selected;
+  s.mesh.material.userData.u.uSel.value = -1;
+  if (!(hover && hover.mesh === s.mesh && hover.id === s.id)) setAnim(s.mesh, s.id, { target: 0 });
+  selected = null;
+  if (silent || REDUCED) { pcard.hidden = true; return; }
+  gsap.to(pcard, { opacity: 0, scale: 0.94, duration: 0.2, onComplete: () => { if (!selected) pcard.hidden = true; } });
+}
+
+function positionCard() {
+  if (!selected) return;
+  const it = selected.mesh.userData.items[selected.id];
+  tmpV.copy(it.pos); tmpV.y += it.scale.y * 0.7;
+  tmpV.project(camera);
+  const sx = (tmpV.x * 0.5 + 0.5) * innerWidth;
+  const sy = (-tmpV.y * 0.5 + 0.5) * innerHeight;
+  if (tmpV.z > 1 || sx < -80 || sx > innerWidth + 80 || sy < -80 || sy > innerHeight + 80) { closeCard(); return; }
+  const w = pcard.offsetWidth, h = pcard.offsetHeight;
+  const x = THREE.MathUtils.clamp(sx - w / 2, 12, innerWidth - w - 12);
+  const y = THREE.MathUtils.clamp(sy - h - 18, 70, innerHeight - h - 12);
+  pcard.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+}
+
+$('#pcClose').addEventListener('click', () => closeCard());
+addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCard(); });
+
+pcAdd.addEventListener('click', () => {
+  if (!selected) return;
+  const s = selected;
+  const it = s.mesh.userData.items[s.id];
+  addToCart({ name: it.sku.n, price: it.sku.p, color: it.sku.c }, pcAdd);
+  removed.add(keyOf(s.mesh, s.id));
+  setAnim(s.mesh, s.id, { target: 0, goneTarget: 1 });
+  pcAdd.classList.add('is-added');
+  pcAdd.textContent = 'Added to basket';
+  pcAdd.disabled = true;
+  if (hover && hover.mesh === s.mesh && hover.id === s.id) setHover(null);
+  setTimeout(() => { if (selected === s) closeCard(); }, 650);
+});
+
+/* ------------------------------------------------------------------ *
+ * Cart
+ * ------------------------------------------------------------------ */
+const cart = [];
+const cartBtn = $('#cartBtn');
+const cartCount = $('#cartCount');
+
+function addToCart(item, fromEl) {
+  const r = fromEl.getBoundingClientRect();
+  const t = cartCount.getBoundingClientRect();
+  const from = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  const to = { x: t.left + t.width / 2, y: t.top + t.height / 2 };
+  const done = () => {
+    cart.push(item);
+    renderCart();
+    if (!REDUCED) {
+      gsap.fromTo(cartCount, { scale: 1.6 }, { scale: 1, duration: 0.7, ease: 'elastic.out(1.1, 0.4)' });
+      gsap.fromTo(cartBtn, { y: -4 }, { y: 0, duration: 0.6, ease: 'bounce.out' });
+    }
+  };
+  if (REDUCED) { done(); return; }
+  const dot = document.createElement('div');
+  dot.className = 'fly-dot';
+  dot.style.background = item.color;
+  document.body.appendChild(dot);
+  const ctrl = { x: (from.x + to.x) / 2 + (to.x < from.x ? 60 : -60), y: Math.min(from.y, to.y) - 160 };
+  const p = { t: 0 };
+  gsap.set(dot, { x: from.x, y: from.y, scale: 0.4 });
+  gsap.to(p, {
+    t: 1, duration: 0.85, ease: 'power2.inOut',
+    onUpdate() {
+      const u = p.t, iu = 1 - u;
+      gsap.set(dot, {
+        x: iu * iu * from.x + 2 * iu * u * ctrl.x + u * u * to.x,
+        y: iu * iu * from.y + 2 * iu * u * ctrl.y + u * u * to.y,
+        scale: 0.4 + Math.sin(u * Math.PI) * 0.9,
+      });
+    },
+    onComplete() { dot.remove(); done(); },
+  });
+}
+
+function renderCart() {
+  const n = cart.length;
+  cartCount.textContent = n;
+  cartBtn.setAttribute('aria-label', `Basket, ${n} item${n === 1 ? '' : 's'}`);
+  const grouped = new Map();
+  for (const c of cart) {
+    const g = grouped.get(c.name) || { ...c, q: 0 };
+    g.q++; grouped.set(c.name, g);
+  }
+  const list = $('#basketList');
+  list.innerHTML = '';
+  for (const g of grouped.values()) {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="sw" style="--c:${g.color}"></span><span></span><span class="q">×${g.q}</span><span class="pr">${fmt(g.price * g.q)}</span>`;
+    li.children[1].textContent = g.name;
+    list.appendChild(li);
+  }
+  $('#basketEmpty').hidden = n > 0;
+  const total = cart.reduce((s, c) => s + c.price, 0);
+  $('#basketTotal').textContent = fmt(total);
+  $('#checkoutAmt').textContent = n ? '· ' + fmt(total) : '';
+}
+renderCart();
+
+document.querySelectorAll('.pick').forEach((b) => {
+  b.addEventListener('click', () => addToCart({ name: b.dataset.name, price: parseFloat(b.dataset.price), color: b.dataset.color }, b.querySelector('.pick-plus')));
+});
+document.querySelectorAll('.slot').forEach((b) => {
+  b.addEventListener('click', () => document.querySelectorAll('.slot').forEach((o) => o.setAttribute('aria-pressed', String(o === b))));
+});
+$('#checkoutBtn').addEventListener('click', () => {
+  const note = $('#checkoutNote');
+  if (!cart.length) { note.textContent = 'Add something from the shelves first.'; return; }
+  const slot = document.querySelector('.slot[aria-pressed="true"]').textContent;
+  note.textContent = `Demo order placed — ${cart.length} item${cart.length === 1 ? '' : 's'}, ${slot}. No card was charged.`;
+});
+$('#receiptTime').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+$('#statCount').textContent = (Math.floor(totalItems / 100) * 100).toLocaleString();
+
+/* ------------------------------------------------------------------ *
+ * Input
+ * ------------------------------------------------------------------ */
+addEventListener('pointermove', (e) => {
+  pointer.x = (e.clientX / innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / innerHeight) * 2 + 1;
+  pointer.onCanvas = e.target === canvas;
+  if (e.pointerType === 'mouse') { pointer.ndc.set(pointer.x, pointer.y); pointer.dirty = true; }
+}, { passive: true });
+
+let downAt = null;
+canvas.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8) return;
+  pointer.ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  const h = raycast();
+  if (h) openCard(h); else closeCard();
+});
+
+/* ------------------------------------------------------------------ *
+ * Scroll: Lenis + ScrollTrigger
+ * ------------------------------------------------------------------ */
+let lenis = null;
+if (!REDUCED && window.Lenis) {
+  lenis = new window.Lenis({ lerp: 0.1, smoothWheel: true });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add((t) => lenis.raf(t * 1000));
+  gsap.ticker.lagSmoothing(0);
+}
+document.querySelectorAll('a[href^="#"]').forEach((a) => {
+  a.addEventListener('click', (e) => {
+    const id = a.getAttribute('href');
+    const el = id.length > 1 && document.querySelector(id);
+    if (!el) return;
+    e.preventDefault();
+    const top = el.classList.contains('chapter') ? el.offsetTop + (el.offsetHeight - innerHeight) / 2 : el.offsetTop;
+    if (lenis) lenis.scrollTo(top, { duration: 2.2 }); else scrollTo({ top, behavior: REDUCED ? 'auto' : 'smooth' });
+  });
+});
+cartBtn.addEventListener('click', () => {
+  const top = $('#till').offsetTop;
+  if (lenis) lenis.scrollTo(top, { duration: 2 }); else scrollTo({ top });
+});
+
+ScrollTrigger.create({
+  trigger: track, start: 'top top', end: 'bottom bottom',
+  onUpdate: (s) => { targetP = s.progress; },
+  onRefresh: (s) => { computeKeys(); targetP = s.progress; },
+});
+
+const railFill = $('#railFill');
+const railItems = [...document.querySelectorAll('.rail li')];
+const navLinks = [...document.querySelectorAll('.nav-links a')];
+chapters.forEach((ch, i) => {
+  const card = ch.querySelector('.chapter-card');
+  if (!REDUCED) {
+    gsap.timeline({ scrollTrigger: { trigger: ch, start: 'top 85%', end: 'bottom 15%', scrub: true } })
+      .fromTo(card, { autoAlpha: 0, y: 70, rotateX: -8 }, { autoAlpha: 1, y: 0, rotateX: 0, duration: 1, ease: 'power2.out' })
+      .to(card, { duration: 1.2 })
+      .to(card, i === chapters.length - 1 ? { duration: 0.6 } : { autoAlpha: 0, y: -60, duration: 0.8, ease: 'power2.in' });
+    gsap.fromTo(card.querySelector('h2'), { letterSpacing: '0.04em' }, {
+      letterSpacing: '-0.04em', ease: 'none',
+      scrollTrigger: { trigger: ch, start: 'top 85%', end: 'top 20%', scrub: true },
+    });
+  }
+  ScrollTrigger.create({
+    trigger: ch, start: 'top 50%', end: 'bottom 50%',
+    onToggle: (s) => {
+      railItems[i].classList.toggle('is-active', s.isActive);
+      navLinks[i] && navLinks[i].classList.toggle('is-active', s.isActive);
+    },
+  });
+});
+ScrollTrigger.create({
+  trigger: track, start: 'top top', end: 'bottom bottom',
+  onUpdate: (s) => { railFill.style.transform = `scaleY(${s.progress.toFixed(4)})`; },
+});
+ScrollTrigger.create({
+  trigger: '#till', start: 'top 70%',
+  onToggle: (s) => document.querySelector('.rail').classList.toggle('is-hidden', s.isActive),
+});
+ScrollTrigger.create({
+  trigger: '#till', start: 'top 80px',
+  onToggle: (s) => $('#nav').classList.toggle('is-solid', s.isActive),
+});
+if (!REDUCED) {
+  gsap.to('.hero-inner', {
+    autoAlpha: 0, y: -80, ease: 'none',
+    scrollTrigger: { trigger: '.hero', start: 'top top', end: '70% top', scrub: true },
+  });
+  gsap.to('.scroll-cue', { autoAlpha: 0, scrollTrigger: { trigger: '.hero', start: 'top top', end: '20% top', scrub: true } });
+  gsap.from('.cta-copy > *, .receipt', {
+    y: 50, autoAlpha: 0, stagger: 0.08, duration: 1, ease: 'power3.out',
+    scrollTrigger: { trigger: '#till', start: 'top 70%' },
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Loop (paused when the aisle is covered or the tab is hidden)
+ * ------------------------------------------------------------------ */
+let running = false, raf = 0, last = performance.now(), visible = true, firstFrame = true;
+const clock = { t: 0 };
+
+function frame(now) {
+  raf = 0;
+  if (!visible || document.hidden) { running = false; return; }
+  raf = requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  clock.t += dt;
+
+  curP += (targetP - curP) * (REDUCED ? 1 : 1 - Math.pow(0.012, dt));
+  pointer.sx += (pointer.x - pointer.sx) * (1 - Math.pow(0.05, dt));
+  pointer.sy += (pointer.y - pointer.sy) * (1 - Math.pow(0.05, dt));
+  if (REDUCED) { pointer.sx = pointer.sy = 0; }
+  updateCamera();
+
+  if (pointer.dirty || Math.abs(targetP - curP) > 1e-4) {
+    if (pointer.onCanvas && pointer.ndc.x < 2) setHover(raycast()); else if (!pointer.onCanvas) setHover(null);
+    pointer.dirty = false;
+  }
+  stepAnims(dt);
+  for (const m of products) m.material.userData.u.uTime.value = clock.t;
+  if (!REDUCED) for (const s of signs) s.rotation.z = Math.sin(clock.t * 0.8 + s.userData.phase) * 0.012;
+
+  renderer.render(scene, camera);
+  positionCard();
+
+  if (firstFrame) {
+    firstFrame = false;
+    $('#loader').classList.add('is-done');
+    if (!REDUCED) {
+      gsap.to(intro, { t: 1, duration: 2.6, ease: 'power3.out', delay: 0.15 });
+      gsap.from('.hero .line', { yPercent: 110, autoAlpha: 0, duration: 1.1, stagger: 0.12, ease: 'power4.out', delay: 0.3 });
+      gsap.from('.hero .eyebrow, .hero .lede, .hero-actions, .nav', { y: 24, autoAlpha: 0, duration: 0.9, stagger: 0.08, ease: 'power3.out', delay: 0.55 });
+    }
+  }
+}
+function start() {
+  if (running) return;
+  running = true; last = performance.now();
+  raf = requestAnimationFrame(frame);
+}
+
+new IntersectionObserver((entries) => {
+  visible = entries[0].isIntersecting;
+  if (visible) start();
+}, { threshold: 0 }).observe(track);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) start(); });
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight, false);
+  ScrollTrigger.refresh();
+});
+
+$('#loaderCount').textContent = `· ${totalItems.toLocaleString()} products`;
+await drawSigns();
+start();
+</script>
+</body>
+</html>
